@@ -124,6 +124,20 @@ class RetrievalEvaluation {
             }
             line("");
 
+            // Why does the hybrid search lose a hit? The top of the full-text list for those questions.
+            line("### Full-text list where the hybrid search is worse (top 3 of `websearch_to_tsquery('simple', ...)`)");
+            line("");
+            for (int i = 0; i < questions.size(); i++) {
+                Question q = questions.get(i);
+                int v = rank(q, exact.get(i));
+                int h = rank(q, hybrid.get(i));
+                if (!q.relevant().isEmpty() && v > 0 && (h == 0 || h > v)) {
+                    line("- %s %s (query `%s`): %s", q.id(), q.question(), KnowledgeRepository.orQuery(q.question()),
+                            fullText(c, q.question()));
+                }
+            }
+            line("");
+
             // 2. Distance of the best hit: can a threshold detect "no source"?
             List<Double> with = new ArrayList<>();
             List<Double> without = new ArrayList<>();
@@ -354,6 +368,26 @@ class RetrievalEvaluation {
 
     private static double max(List<Double> v) {
         return v.stream().mapToDouble(Double::doubleValue).max().orElse(Double.NaN);
+    }
+
+    private static String fullText(Connection c, String question) throws SQLException {
+        try (java.sql.PreparedStatement ps = c.prepareStatement("""
+                SELECT c.document_id, c.section, ts_rank_cd(c.tsv, q) AS rank,
+                       (SELECT string_agg(DISTINCT lexeme, ' ') FROM unnest(c.tsv) u
+                        WHERE u.lexeme = ANY (string_to_array(?, ' '))) AS matched
+                FROM chunk c, websearch_to_tsquery('simple', ?) q
+                WHERE c.tsv @@ q ORDER BY rank DESC LIMIT 3""")) {
+            ps.setString(1, KnowledgeRepository.orQuery(question).replace(" or ", " "));
+            ps.setString(2, KnowledgeRepository.orQuery(question));
+            List<String> hits = new ArrayList<>();
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    hits.add(String.format(Locale.ROOT, "%s / %s (%.2f, matched: %s)", rs.getString(1),
+                            rs.getString(2), rs.getDouble(3), rs.getString(4)));
+                }
+            }
+            return String.join("; ", hits);
+        }
     }
 
     private static void exec(Connection c, String sql) throws SQLException {

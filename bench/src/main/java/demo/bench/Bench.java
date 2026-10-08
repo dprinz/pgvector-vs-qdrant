@@ -16,8 +16,11 @@ import java.util.Map;
  * pg-index     --type vector|halfvec [--m 16] [--ef-construction 64] [--workers 8] [--memory 12GB]
  * pg-btree     --create true|false                B-tree index on category
  * pg-query     --type vector|halfvec --ef 40,80 --filter none,1% [--iterative off,relaxed_order] [--label x]
+ *              [--queries 1000] [--force-index true] [--max-scan-tuples 20000]
  * qdrant-load  [--m 16] [--ef-construct 64]
  * qdrant-query --ef 40,80 --filter none,1% [--label x]
+ * pg-throughput --type vector|halfvec --ef 160 [--threads 1,8,16]
+ * qdrant-throughput --ef 40 [--threads 1,8,16]
  * </pre>
  */
 public final class Bench {
@@ -44,7 +47,9 @@ public final class Bench {
                     for (String filter : list(o, "filter", "none")) {
                         for (String ef : list(o, "ef", "40")) {
                             Pg.query(type(o), Integer.parseInt(ef), Data.Filter.parse(filter), iterative,
-                                    o.getOrDefault("label", ""));
+                                    o.getOrDefault("label", ""), integer(o, "queries", 1000),
+                                    Boolean.parseBoolean(o.getOrDefault("force-index", "false")),
+                                    integer(o, "max-scan-tuples", 20000));
                         }
                     }
                 }
@@ -55,6 +60,23 @@ public final class Bench {
                     for (String ef : list(o, "ef", "40")) {
                         QdrantBench.query(Integer.parseInt(ef), Data.Filter.parse(filter),
                                 o.getOrDefault("label", ""));
+                    }
+                }
+            }
+            case "pg-throughput" -> {
+                Pg.Type type = type(o);
+                int ef = integer(o, "ef", 40);
+                for (String threads : list(o, "threads", "1,8,16")) {
+                    Throughput.run("pgvector", type.sqlType + " ef_search=" + ef, Throughput.pg(type, ef),
+                            Integer.parseInt(threads));
+                }
+            }
+            case "qdrant-throughput" -> {
+                int ef = integer(o, "ef", 40);
+                try (var client = QdrantBench.connect()) {
+                    for (String threads : list(o, "threads", "1,8,16")) {
+                        Throughput.run("qdrant", "hnsw_ef=" + ef, Throughput.qdrant(client, ef),
+                                Integer.parseInt(threads));
                     }
                 }
             }

@@ -73,4 +73,4 @@ for the pgvector index build (see `maintenance_work_mem` and `shm_size` in [`com
 
 ## License
 
-Code: MIT. Corpus: CC BY-SA 4.0, see [`knowledge/README.md`](knowledge/README.md).
+Code: [MIT](LICENSE). Corpus: CC BY-SA 4.0, see [`knowledge/README.md`](knowledge/README.md).

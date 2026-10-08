@@ -147,15 +147,23 @@ final class Pg {
      * Runs all queries once as warm-up and once measured, single-threaded, for one setting.
      * iterative: off, relaxed_order or strict_order (hnsw.iterative_scan, pgvector 0.8).
      */
-    static void query(Type type, int efSearch, Data.Filter filter, String iterative, String label)
-            throws Exception {
-        float[][] queries = Data.read(Data.QUERIES);
+    static void query(Type type, int efSearch, Data.Filter filter, String iterative, String label, int limit,
+                      boolean forceIndex, int maxScanTuples) throws Exception {
+        float[][] all = Data.read(Data.QUERIES);
+        float[][] queries = java.util.Arrays.copyOf(all, Math.min(limit, all.length));
         int[][] truth = Data.truth(filter);
-        String where = filter == Data.Filter.NONE ? "" : "WHERE category < ? ";
+        // The filter bound is a literal, not a parameter: with a parameter, pgJDBC's server-side prepared statement
+        // gets a generic plan after a few executions, and that plan is chosen without knowing the selectivity.
+        String where = filter == Data.Filter.NONE ? "" : "WHERE category < " + filter.bound + " ";
         String sql = "SELECT id FROM " + type.table + " " + where + "ORDER BY embedding <#> ? LIMIT " + Data.K;
         try (Connection c = connect()) {
             exec(c, "SET hnsw.ef_search = " + efSearch);
             exec(c, "SET hnsw.iterative_scan = " + iterative);
+            if (forceIndex) {
+                exec(c, "SET enable_seqscan = off");
+            }
+            // Upper bound of tuples an iterative scan visits (default 20000)
+            exec(c, "SET hnsw.max_scan_tuples = " + maxScanTuples);
             String plan = plan(c, type, sql, filter, queries[0]);
             double[] ms = new double[queries.length];
             double recallSum = 0;
@@ -190,6 +198,9 @@ final class Pg {
             r.put("filter", filter.label);
             r.put("ef_search", efSearch);
             r.put("iterative_scan", iterative);
+            r.put("force_index", forceIndex);
+            r.put("max_scan_tuples", maxScanTuples);
+            r.put("queries", queries.length);
             r.put("recall_at_10", recallSum / queries.length);
             r.put("fewer_than_10", short_);
             Results.latency(r, ms);
@@ -199,11 +210,7 @@ final class Pg {
     }
 
     private static void bind(PreparedStatement ps, Type type, Data.Filter filter, float[] query) throws SQLException {
-        int i = 1;
-        if (filter != Data.Filter.NONE) {
-            ps.setInt(i++, filter.bound);
-        }
-        ps.setObject(i, type == Type.VECTOR ? new PGvector(query) : new PGhalfvec(query));
+        ps.setObject(1, type == Type.VECTOR ? new PGvector(query) : new PGhalfvec(query));
     }
 
     /** Top node types of the plan for the first query, e.g. "Limit > Index Scan using items_hnsw". */
