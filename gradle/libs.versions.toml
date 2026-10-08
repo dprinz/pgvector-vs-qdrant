@@ -1,0 +1,29 @@
+[versions]
+java = "25"
+# Quarkus 3.40 is the current LTS line.
+quarkus = "3.40.1"
+pgvector = "0.1.6"
+postgresql = "42.7.14"
+# Client minor version follows the server (qdrant/qdrant v1.19.1).
+qdrant = "1.19.0"
+duckdb = "1.5.6.0"
+
+[libraries]
+quarkus-bom = { group = "io.quarkus.platform", name = "quarkus-bom", version.ref = "quarkus" }
+quarkus-langchain4j-bom = { group = "io.quarkus.platform", name = "quarkus-langchain4j-bom", version.ref = "quarkus" }
+quarkus-rest-jackson = { group = "io.quarkus", name = "quarkus-rest-jackson" }
+quarkus-agroal = { group = "io.quarkus", name = "quarkus-agroal" }
+quarkus-jdbc-postgresql = { group = "io.quarkus", name = "quarkus-jdbc-postgresql" }
+quarkus-flyway = { group = "io.quarkus", name = "quarkus-flyway" }
+quarkus-flyway-postgresql = { group = "io.quarkus", name = "quarkus-flyway-postgresql" }
+quarkus-narayana-jta = { group = "io.quarkus", name = "quarkus-narayana-jta" }
+quarkus-junit5 = { group = "io.quarkus", name = "quarkus-junit5" }
+# In-process ONNX runtime for the embedding model; version from the Quarkus LangChain4j BOM.
+langchain4j-embeddings = { group = "dev.langchain4j", name = "langchain4j-embeddings" }
+pgvector = { group = "com.pgvector", name = "pgvector", version.ref = "pgvector" }
+postgresql = { group = "org.postgresql", name = "postgresql", version.ref = "postgresql" }
+qdrant-client = { group = "io.qdrant", name = "client", version.ref = "qdrant" }
+duckdb-jdbc = { group = "org.duckdb", name = "duckdb_jdbc", version.ref = "duckdb" }
+
+[plugins]
+quarkus = { id = "io.quarkus", version.ref = "quarkus" }

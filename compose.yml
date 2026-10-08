@@ -1,0 +1,60 @@
+# Databases for the benchmark (bench/). The tutorial app (rag-app/) does not need this file: Quarkus Dev Services
+# starts its own PostgreSQL with the same image.
+#
+# Run one database at a time so that both get the same machine:
+#   docker compose up -d postgres     # or: docker compose up -d qdrant
+#   docker compose stop postgres
+#
+# Demo credentials, only for localhost.
+name: pgvector-vs-qdrant
+
+services:
+  postgres:
+    # PostgreSQL 18.6 with pgvector 0.8.7
+    image: pgvector/pgvector:pg18@sha256:2358fcba361ed2233a5ed81b5fe4ca779ccb304120ce531a3bf51c0ed7e2bc11
+    environment:
+      POSTGRES_DB: bench
+      POSTGRES_USER: bench
+      POSTGRES_PASSWORD: bench
+    command:
+      - postgres
+      - -c
+      - shared_buffers=4GB
+      - -c
+      - effective_cache_size=16GB
+      # HNSW is built in memory; a graph that does not fit is built much more slowly.
+      - -c
+      - maintenance_work_mem=12GB
+      - -c
+      - max_parallel_maintenance_workers=8
+      - -c
+      - max_parallel_workers=16
+      - -c
+      - max_worker_processes=24
+      - -c
+      - work_mem=64MB
+    # Parallel index builds share maintenance_work_mem through /dev/shm; Docker's default of 64 MB is far too small.
+    shm_size: 14g
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bench -d bench"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  qdrant:
+    image: qdrant/qdrant:v1.19.1@sha256:12364fe851b9f17356fc88189fc06d1b521262e04659ec7345975b00c9246a10
+    environment:
+      QDRANT__TELEMETRY_DISABLED: "true"
+    ports:
+      - "127.0.0.1:6333:6333"
+      - "127.0.0.1:6334:6334"
+    volumes:
+      - qdrantdata:/qdrant/storage
+
+volumes:
+  pgdata:
+  qdrantdata:

@@ -1,0 +1,12 @@
+.gradle/
+build/
+.kotlin/
+.idea/
+*.iml
+.vscode/
+.DS_Store
+.env
+.quarkus/
+
+# Prepared benchmark data (several GB), see bench/README
+bench/data/
